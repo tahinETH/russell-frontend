@@ -9,11 +9,11 @@ export default function PageTitle() {
   const getPageTitle = (path: string) => {
     switch (path) {
       case '/':
-        return 'WonderSci'
+        return 'Russell'
       case '/sign-in':
         return 'Sign In'
       default:
-        return 'WonderSci'
+        return 'Russell'
     }
   }
 

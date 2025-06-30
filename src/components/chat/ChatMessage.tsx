@@ -28,7 +28,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         <div className="rounded-full bg-slate-200 flex items-center justify-center border border-slate-300">
           <Image 
             src="/img/locky4.png" 
-            alt="WonderSci AI" 
+            alt="Russell AI" 
             width={48} 
             height={48} 
          

@@ -557,6 +557,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
         ...(currentChatId && { chat_id: currentChatId })
       });
       
+      
       setMessages(prev => prev.map(msg => {
         if (msg.isLoading && msg.type === 'ai') {
           return {

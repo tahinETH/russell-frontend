@@ -19,8 +19,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "WonderSci",
-  description: "WonderSci - AI-Powered Science Education",
+  title: "Russell",
 }
 
 export default function RootLayout({
@@ -35,9 +34,9 @@ export default function RootLayout({
         <ClerkProvider
           appearance={{
             variables: {
-              colorPrimary: "#121B95",
-              colorBackground: "#ffffff",
-              colorText: "#000000",
+              colorPrimary: "#570987",
+              colorBackground: "#000000",
+              colorText: "#ffffff",
             },
           }}
           signInUrl="/sign-in"

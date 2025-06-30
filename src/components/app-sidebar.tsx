@@ -249,9 +249,9 @@ export default function AppSidebar() {
        
         
         <div className="absolute bottom-4 left-4 right-4">
-        <div className="mt-auto mb-4">
-          <SystemPromptCard />
-        </div>
+          <div className="mt-auto mb-4">
+            <SystemPromptCard />
+          </div>
           <SignedIn>
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2 px-4'} py-3 rounded-md`}>
               <UserButton afterSignOutUrl="/" />
