@@ -655,7 +655,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                 <RotateCcw className="h-3 w-3" />
                 Reset
               </button>
-              <button
+              {/* <button
                 onClick={playTestAudio}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                   isTestPlaying 
@@ -664,7 +664,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                 }`}
               >
                 {isTestPlaying ? 'Stop Test' : 'Test Audio'}
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
