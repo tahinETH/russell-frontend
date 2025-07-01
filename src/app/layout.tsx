@@ -7,6 +7,7 @@ import { ApiProvider } from "@/providers/backend"
 import { UserStatusProvider } from "@/providers/user-status"
 import { Toaster } from "@/components/ui/sonner"
 import { shadesOfPurple } from "@clerk/themes"
+import ClientWrapper from "@/components/ClientWrapper"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,7 +46,9 @@ export default function RootLayout({
           <ApiProvider>
             <UserStatusProvider>
               <Toaster />
-              {children}
+              <ClientWrapper>
+                {children}
+              </ClientWrapper>
             </UserStatusProvider>
           </ApiProvider>
         </ClerkProvider>
