@@ -1,7 +1,8 @@
 "use client"
 
 import { useRef, useState, useEffect } from 'react';
-import GlassChatInterface, { GlassChatInterfaceRef } from "@/components/chat/GlassChatInterface";
+import GlassChatInterface from "@/components/chat/GlassChatInterface";
+import { GlassChatInterfaceRef } from '@/types/chat.types';
 import CenterVoiceButton from "@/components/chat/CenterVoiceButton";
 import MediaSettings from "@/components/MediaSettings";
 import { SentenceRevealEffect } from "@/components/ui/sentence-reveal-effect";
@@ -31,7 +32,7 @@ export default function HomeClient() {
       />
       
       {/* Sentence Reveal - positioned right next to GlassChatInterface */}
-      {currentAiMessage && (
+     {/*  {currentAiMessage && (
         <div className="fixed right-[700px] top-1/4 -translate-y-1/2 z-40 max-w-md">
           <SentenceRevealEffect 
             text={currentAiMessage}
@@ -40,7 +41,7 @@ export default function HomeClient() {
             resetKey={messageKey}
           />
         </div>
-      )}
+      )} */}
 
       
       {/* Media Settings - Top Right */}

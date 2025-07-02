@@ -1,7 +1,8 @@
 "use client"
 import { useState, useEffect, useRef } from 'react';
 import { SignIn } from "@clerk/nextjs";
-import GlassChatInterface, { GlassChatInterfaceRef } from "@/components/chat/GlassChatInterface";
+import GlassChatInterface from "@/components/chat/GlassChatInterface";
+import { GlassChatInterfaceRef } from '@/types/chat.types';
 import CenterVoiceButton from "@/components/chat/CenterVoiceButton";
 import { UserButton } from '@clerk/nextjs';
 
