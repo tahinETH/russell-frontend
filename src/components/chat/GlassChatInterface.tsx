@@ -695,13 +695,13 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
             </div>
           )}
           
-          {!isLoadingPreviousMessages && messages.length === 0 && (
+         {/*   {!isLoadingPreviousMessages && messages.length === 0 && (
             <div className="text-center text-white/60 mt-8">
               <p className="text-sm">
                 {isSignedIn ? "Ask anything to Russell..." : "Please sign in to chat"}
               </p>
             </div>
-          )}
+          )} */}
           
           {messages.map((message) => (
             <div
@@ -800,7 +800,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
             <button
               type="submit"
               disabled={!isSignedIn || isLoading || isLoadingPreviousMessages || !input.trim()}
-              className="absolute right-2 bottom-2 p-2 rounded-lg bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="absolute right-2 top-[6px] p-2 rounded-lg bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Send className="h-4 w-4 text-white" />
             </button>
