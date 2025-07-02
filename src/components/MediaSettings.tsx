@@ -39,8 +39,11 @@ export default function MediaSettings() {
       
       const currentVolume = startVolume + (volumeDiff * easeInOutCubic);
       
+      // Clamp volume between 0 and 1 to avoid floating-point precision issues
+      const clampedVolume = Math.max(0, Math.min(1, currentVolume));
+      
       if (audioRef.current && !audioRef.current.muted) {
-        audioRef.current.volume = currentVolume;
+        audioRef.current.volume = clampedVolume;
       }
       
       if (progress < 1) {
