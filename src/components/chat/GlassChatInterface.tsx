@@ -398,23 +398,23 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
       
       // Create reverb with pre-delay
       const convolver = audioContext.createConvolver();
-      convolver.buffer = createReverbImpulse(audioContext, 1.2, 3.5, 0.035); // Ethereal reverb
+      convolver.buffer = createReverbImpulse(audioContext, 1.5, 4, 0.04); // Longer, lush reverb
       
       // Create reverb EQ (heavily filtered as recommended)
       const reverbEQ = audioContext.createBiquadFilter();
       reverbEQ.type = 'bandpass';
-      reverbEQ.frequency.setValueAtTime(800, audioContext.currentTime);
-      reverbEQ.Q.setValueAtTime(0.6, audioContext.currentTime);
+      reverbEQ.frequency.setValueAtTime(1000, audioContext.currentTime);
+      reverbEQ.Q.setValueAtTime(0.5, audioContext.currentTime);
       
       // Create gain nodes for mixing
       const dryGain = audioContext.createGain();
       const wetGain = audioContext.createGain();
       const outputGain = audioContext.createGain();
       
-      // Professional mix levels for AI voice
-      dryGain.gain.setValueAtTime(0.8, audioContext.currentTime); // Dry signal
-      wetGain.gain.setValueAtTime(0.35, audioContext.currentTime); // Subtle reverb for clarity
-      outputGain.gain.setValueAtTime(0.9, audioContext.currentTime); // Overall volume
+      // Professional mix levels
+      dryGain.gain.setValueAtTime(0.75, audioContext.currentTime); // Dry signal
+      wetGain.gain.setValueAtTime(0.4, audioContext.currentTime); // Reverb signal (automated in real scenario)
+      outputGain.gain.setValueAtTime(0.85, audioContext.currentTime); // Overall volume
       
       // Connect the professional audio graph:
       // Source -> EQ Chain -> Compressor -> Split to Dry/Wet
@@ -655,7 +655,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                 <RotateCcw className="h-3 w-3" />
                 Reset
               </button>
-              {/* <button
+              <button
                 onClick={playTestAudio}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                   isTestPlaying 
@@ -664,7 +664,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                 }`}
               >
                 {isTestPlaying ? 'Stop Test' : 'Test Audio'}
-              </button> */}
+              </button>
             </div>
           </div>
         </div>

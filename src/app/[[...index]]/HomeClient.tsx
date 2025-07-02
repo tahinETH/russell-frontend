@@ -43,7 +43,7 @@ export default function HomeClient() {
       <GlassChatInterface ref={chatRef} />
       
       {/* Center voice button */}
-      <CenterVoiceButton onTranscriptionComplete={handleVoiceTranscription} />
+      {/* <CenterVoiceButton onTranscriptionComplete={handleVoiceTranscription} /> */}
     </div>
   );
 } 
