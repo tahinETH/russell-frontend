@@ -13,6 +13,43 @@ export default function MediaSettings() {
   const [previousVolume, setPreviousVolume] = useState([30]);
   const [isInitialized, setIsInitialized] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fadeIntervalRef = useRef<number | null>(null);
+
+  // Fade in function
+  const fadeIn = (targetVolume: number, duration: number = 5000) => {
+    if (!audioRef.current) return;
+    
+    // Clear any existing fade
+    if (fadeIntervalRef.current) {
+      cancelAnimationFrame(fadeIntervalRef.current);
+    }
+    
+    const startTime = performance.now();
+    const startVolume = 0;
+    const volumeDiff = targetVolume - startVolume;
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Use easeInOutCubic for smooth fade
+      const easeInOutCubic = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      
+      const currentVolume = startVolume + (volumeDiff * easeInOutCubic);
+      
+      if (audioRef.current && !audioRef.current.muted) {
+        audioRef.current.volume = currentVolume;
+      }
+      
+      if (progress < 1) {
+        fadeIntervalRef.current = requestAnimationFrame(animate);
+      }
+    };
+    
+    fadeIntervalRef.current = requestAnimationFrame(animate);
+  };
 
   // Initialize audio and load preferences
   useEffect(() => {
@@ -21,7 +58,7 @@ export default function MediaSettings() {
     const savedMuted = localStorage.getItem('bg-music-muted');
     const savedPlaying = localStorage.getItem('bg-music-playing');
     
-    let initialVolume = 30;
+    let initialVolume = 25;
     let initialMuted = false;
     
     if (savedVolume) {
@@ -39,59 +76,86 @@ export default function MediaSettings() {
     const audio = new Audio('/bg.mp3');
     audio.loop = true;
     audio.preload = 'auto';
-    audio.volume = initialMuted ? 0 : initialVolume / 100;
     audioRef.current = audio;
 
-    // Try to start playing immediately if enough is buffered
+    // Improved autoplay strategy
     const attemptAutoplay = async () => {
       if (!audioRef.current) return;
       
       try {
-        // Set audio to muted initially to bypass autoplay restrictions
+        // Start muted to bypass autoplay restrictions
         audioRef.current.muted = true;
-        await audioRef.current.play();
+        audioRef.current.volume = 1; // Set to full volume while muted
         
-        // Unmute after successful play (unless user has muted)
-        if (!initialMuted) {
-          audioRef.current.muted = false;
-        }
+        await audioRef.current.play();
+        console.log('Audio started (muted)');
+        
+        // Small delay to ensure playback has started
+        setTimeout(() => {
+          if (audioRef.current && !initialMuted) {
+            audioRef.current.muted = false;
+            audioRef.current.volume = 0; // Start at 0 for fade in
+            console.log('Audio unmuted, starting fade in');
+            
+            // Start fade in effect
+            fadeIn(initialVolume / 100, 5000);
+          }
+        }, 100);
         
         setIsPlaying(true);
         localStorage.setItem('bg-music-playing', 'true');
+        
       } catch (error) {
-        console.log('Autoplay blocked - trying on user interaction');
+        console.log('Autoplay blocked, will try on user interaction:', error);
         setIsPlaying(false);
         
-        // Try to play on first user interaction
-        const playOnInteraction = async () => {
+        // Set up one-time user interaction handlers
+        const playOnInteraction = async (event: Event) => {
+          console.log('User interaction detected, starting audio');
           try {
             if (audioRef.current) {
+              audioRef.current.muted = true;
               await audioRef.current.play();
+              
+              // Unmute after successful play
+              setTimeout(() => {
+                if (audioRef.current && !isMuted) {
+                  audioRef.current.muted = false;
+                  audioRef.current.volume = 0; // Start at 0 for fade in
+                  
+                  // Start fade in effect
+                  fadeIn(volume[0] / 100, 5000);
+                }
+              }, 100);
+              
               setIsPlaying(true);
               localStorage.setItem('bg-music-playing', 'true');
-              // Remove the listener after successful play
+              
+              // Clean up listeners
               document.removeEventListener('click', playOnInteraction);
               document.removeEventListener('keydown', playOnInteraction);
+              document.removeEventListener('touchstart', playOnInteraction);
             }
           } catch (err) {
-            console.error('Failed to play audio:', err);
+            console.error('Failed to play audio on interaction:', err);
           }
         };
         
-        // Add listeners for user interaction
+        // Add multiple interaction listeners
         document.addEventListener('click', playOnInteraction, { once: true });
         document.addEventListener('keydown', playOnInteraction, { once: true });
+        document.addEventListener('touchstart', playOnInteraction, { once: true });
       }
     };
 
-    // Set up event listeners
-    audio.addEventListener('loadeddata', () => {
+    // Start autoplay attempt immediately
+    if (savedPlaying !== 'false') {
       attemptAutoplay();
-    });
+    }
 
+    // Also try when audio is ready
     audio.addEventListener('canplaythrough', () => {
       setIsInitialized(true);
-      // Try again when fully loaded
       if (!isPlaying && savedPlaying !== 'false') {
         attemptAutoplay();
       }
@@ -106,13 +170,11 @@ export default function MediaSettings() {
       setIsPlaying(false);
     });
 
-    // Try immediate autoplay
-    if (savedPlaying !== 'false') {
-      attemptAutoplay();
-    }
-
     // Cleanup on unmount
     return () => {
+      if (fadeIntervalRef.current) {
+        cancelAnimationFrame(fadeIntervalRef.current);
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -122,7 +184,12 @@ export default function MediaSettings() {
 
   // Update volume when slider changes
   useEffect(() => {
-    if (audioRef.current) {
+    if (audioRef.current && !audioRef.current.muted) {
+      // Cancel any ongoing fade when user manually changes volume
+      if (fadeIntervalRef.current) {
+        cancelAnimationFrame(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+      }
       audioRef.current.volume = isMuted ? 0 : volume[0] / 100;
     }
   }, [volume, isMuted]);
@@ -132,11 +199,24 @@ export default function MediaSettings() {
 
     try {
       if (isPlaying) {
+        // Cancel any ongoing fade
+        if (fadeIntervalRef.current) {
+          cancelAnimationFrame(fadeIntervalRef.current);
+          fadeIntervalRef.current = null;
+        }
+        
         audioRef.current.pause();
         setIsPlaying(false);
         localStorage.setItem('bg-music-playing', 'false');
       } else {
         await audioRef.current.play();
+        
+        // Apply fade-in when resuming
+        if (!isMuted) {
+          audioRef.current.volume = 0;
+          fadeIn(volume[0] / 100, 2000); // Shorter fade for resume
+        }
+        
         setIsPlaying(true);
         localStorage.setItem('bg-music-playing', 'true');
       }
