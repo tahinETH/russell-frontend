@@ -19,6 +19,7 @@ export default function MediaSettings() {
     // Load preferences from localStorage
     const savedVolume = localStorage.getItem('bg-music-volume');
     const savedMuted = localStorage.getItem('bg-music-muted');
+    const savedPlaying = localStorage.getItem('bg-music-playing');
     
     let initialVolume = 30;
     let initialMuted = false;
@@ -41,11 +42,59 @@ export default function MediaSettings() {
     audio.volume = initialMuted ? 0 : initialVolume / 100;
     audioRef.current = audio;
 
+    // Try to start playing immediately if enough is buffered
+    const attemptAutoplay = async () => {
+      if (!audioRef.current) return;
+      
+      try {
+        // Set audio to muted initially to bypass autoplay restrictions
+        audioRef.current.muted = true;
+        await audioRef.current.play();
+        
+        // Unmute after successful play (unless user has muted)
+        if (!initialMuted) {
+          audioRef.current.muted = false;
+        }
+        
+        setIsPlaying(true);
+        localStorage.setItem('bg-music-playing', 'true');
+      } catch (error) {
+        console.log('Autoplay blocked - trying on user interaction');
+        setIsPlaying(false);
+        
+        // Try to play on first user interaction
+        const playOnInteraction = async () => {
+          try {
+            if (audioRef.current) {
+              await audioRef.current.play();
+              setIsPlaying(true);
+              localStorage.setItem('bg-music-playing', 'true');
+              // Remove the listener after successful play
+              document.removeEventListener('click', playOnInteraction);
+              document.removeEventListener('keydown', playOnInteraction);
+            }
+          } catch (err) {
+            console.error('Failed to play audio:', err);
+          }
+        };
+        
+        // Add listeners for user interaction
+        document.addEventListener('click', playOnInteraction, { once: true });
+        document.addEventListener('keydown', playOnInteraction, { once: true });
+      }
+    };
+
     // Set up event listeners
+    audio.addEventListener('loadeddata', () => {
+      attemptAutoplay();
+    });
+
     audio.addEventListener('canplaythrough', () => {
       setIsInitialized(true);
-      // Try to start playing automatically once audio is ready
-      attemptAutoplay();
+      // Try again when fully loaded
+      if (!isPlaying && savedPlaying !== 'false') {
+        attemptAutoplay();
+      }
     });
 
     audio.addEventListener('ended', () => {
@@ -57,21 +106,10 @@ export default function MediaSettings() {
       setIsPlaying(false);
     });
 
-    // Try to start playing immediately if enough is buffered
-    const attemptAutoplay = async () => {
-      if (audioRef.current && audioRef.current.readyState >= 2) { // HAVE_CURRENT_DATA
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (error) {
-          console.log('Autoplay blocked - user interaction required');
-          setIsPlaying(false);
-        }
-      }
-    };
-
     // Try immediate autoplay
-    attemptAutoplay();
+    if (savedPlaying !== 'false') {
+      attemptAutoplay();
+    }
 
     // Cleanup on unmount
     return () => {
@@ -96,9 +134,11 @@ export default function MediaSettings() {
       if (isPlaying) {
         audioRef.current.pause();
         setIsPlaying(false);
+        localStorage.setItem('bg-music-playing', 'false');
       } else {
         await audioRef.current.play();
         setIsPlaying(true);
+        localStorage.setItem('bg-music-playing', 'true');
       }
     } catch (error) {
       console.error('Error toggling audio playback:', error);
@@ -136,7 +176,7 @@ export default function MediaSettings() {
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg"
+          className="rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white cursor-pointer transition-colors shadow-lg"
         >
           <Music className="h-4 w-4" />
         </Button>

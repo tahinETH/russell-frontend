@@ -50,9 +50,14 @@ export interface GlassChatInterfaceRef {
   submitMessage: (message: string) => void;
 }
 
+interface GlassChatInterfaceProps {
+  onNewAiMessage?: (message: string) => void;
+}
+
 const CHAT_ID_STORAGE_KEY = 'glasschat_chat_id';
 
-const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
+const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceProps>((props, ref) => {
+  const { onNewAiMessage } = props;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -71,6 +76,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
   const { user } = useUser();
   const router = useRouter();
   const api = useApi();
+
 
   
   // Load previous chat session on component mount
@@ -571,6 +577,11 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
         return msg;
       }));
 
+      // Notify parent component of new AI message
+      if (onNewAiMessage) {
+        onNewAiMessage(data.text_response);
+      }
+
       // Update current chat ID (this will also save to localStorage via useEffect)
       if (data.chat_id) {
         setCurrentChatId(data.chat_id);
@@ -579,6 +590,10 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
       // Play audio if available
       if (data.audio_base64) {
         playAudio(data.audio_base64, data.audio_format || 'mp3');
+      }
+      
+      if (onNewAiMessage) {
+        onNewAiMessage(data.text_response);
       }
       
     } catch (error) {
@@ -634,7 +649,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
   const getPlaceholder = () => {
     if (!isSignedIn) return "Please sign in to chat...";
     if (isLoadingPreviousMessages) return "Loading previous messages...";
-    if (isLoading) return "AI is thinking...";
+    if (isLoading) return "Russell is contemplating";
     return "Type your message...";
   };
 
@@ -645,7 +660,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
         {/* Header with Voice Indicator and Reset Button */}
         <div className="px-6 py-4 border-b border-white/10">
           <div className="flex items-center justify-between">
-            <h2 className="text-white font-semibold text-lg">Voice Assistant</h2>
+            <h2 className="text-white font-semibold text-lg">Russell</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={resetChat}
@@ -653,9 +668,9 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                 title="Reset Chat"
               >
                 <RotateCcw className="h-3 w-3" />
-                Reset
+                
               </button>
-              <button
+             {/*  <button
                 onClick={playTestAudio}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                   isTestPlaying 
@@ -664,7 +679,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                 }`}
               >
                 {isTestPlaying ? 'Stop Test' : 'Test Audio'}
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -683,7 +698,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
           {!isLoadingPreviousMessages && messages.length === 0 && (
             <div className="text-center text-white/60 mt-8">
               <p className="text-sm">
-                {isSignedIn ? "Start a conversation with voice responses..." : "Please sign in to chat"}
+                {isSignedIn ? "Ask anything to Russell..." : "Please sign in to chat"}
               </p>
             </div>
           )}
@@ -713,7 +728,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef>((props, ref) => {
                     <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    <span className="text-white/60 text-xs ml-2">Thinking...</span>
+                    
                   </div>
                 ) : (
                   <div className="text-sm">
