@@ -1,12 +1,20 @@
 import React from 'react';
 import { RotateCcw } from 'lucide-react';
+import ChatSettings from './ChatSettings';
 
 interface ChatHeaderProps {
   isLessonMode: boolean;
   onReset: () => void;
+  onImageGenerationToggle?: (enabled: boolean) => void;
+  onVoiceToggle?: (enabled: boolean) => void;
 }
 
-export const ChatHeader: React.FC<ChatHeaderProps> = ({ isLessonMode, onReset }) => {
+export const ChatHeader: React.FC<ChatHeaderProps> = ({ 
+  isLessonMode, 
+  onReset,
+  onImageGenerationToggle,
+  onVoiceToggle
+}) => {
   return (
     <div className={`px-6 py-4 border-b ${isLessonMode ? 'border-purple-400/20' : 'border-white/10'}`}>
       <div className="flex items-center justify-between">
@@ -14,6 +22,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ isLessonMode, onReset })
           {isLessonMode ? 'Russell - Black Holes Lesson' : 'Russell'}
         </h2>
         <div className="flex items-center gap-2">
+          <ChatSettings 
+            onImageGenerationToggle={onImageGenerationToggle}
+            onVoiceToggle={onVoiceToggle}
+          />
           <button
             onClick={onReset}
             className="px-3 py-1 rounded-lg text-xs font-medium transition-colors bg-white/20 hover:bg-white/30 text-white flex items-center gap-1"

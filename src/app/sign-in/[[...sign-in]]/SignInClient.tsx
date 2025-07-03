@@ -58,6 +58,8 @@ export default function SignInClient() {
             <CenterVoiceButton 
               onTranscriptionComplete={handleVoiceTranscription}
               disabled={true} // Disabled on sign-in page
+              isVoicePlaying={false}
+              isProcessing={false}
             />
           </div>
         </div>

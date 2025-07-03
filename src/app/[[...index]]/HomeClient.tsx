@@ -65,7 +65,11 @@ export default function HomeClient() {
       />
       
       {/* Center voice button */}
-      {/* <CenterVoiceButton onTranscriptionComplete={handleVoiceTranscription} /> */}
+      {/* <CenterVoiceButton 
+        onTranscriptionComplete={handleVoiceTranscription} 
+        isVoicePlaying={false}
+        isProcessing={false}
+      /> */}
     </div>
   );
 } 

@@ -18,9 +18,12 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPreviousMessages, setIsLoadingPreviousMessages] = useState(false);
+  const [authToken, setAuthToken] = useState<string>('');
+  const [imageGenerationEnabled, setImageGenerationEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const api = useApi();
   
   // Use chat manager hook
@@ -44,13 +47,47 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     playAudio,
     stopAudio,
     stopTestAudio,
+    startVoiceStreaming,
+    endVoiceStreaming,
     cleanup: cleanupAudio
   } = useAudioProcessing();
 
+  // Get auth token when user is signed in
+  useEffect(() => {
+    const fetchToken = async () => {
+      if (isSignedIn) {
+        try {
+          const token = await getToken();
+          if (token) {
+            setAuthToken(token);
+          }
+        } catch (error) {
+          console.error('Failed to get auth token:', error);
+        }
+      } else {
+        setAuthToken('');
+      }
+    };
 
-  // Use message handler hook
-  const { submitMessage } = useMessageHandler({
-    api,
+    fetchToken();
+  }, [isSignedIn, getToken]);
+
+  // Load settings from localStorage
+  useEffect(() => {
+    const savedImageEnabled = localStorage.getItem('chat-image-enabled');
+    const savedVoiceEnabled = localStorage.getItem('chat-voice-enabled');
+    
+    if (savedImageEnabled !== null) {
+      setImageGenerationEnabled(savedImageEnabled === 'true');
+    }
+    
+    if (savedVoiceEnabled !== null) {
+      setVoiceEnabled(savedVoiceEnabled === 'true');
+    }
+  }, []);
+
+  // Use message handler hook with WebSocket
+  const { submitMessage, isVoiceStreaming, isImageGenerating, cleanup: cleanupMessageHandler } = useMessageHandler({
     isLoading,
     setIsLoading,
     currentChatId,
@@ -60,7 +97,10 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     onNewAiMessage,
     updateChatId,
     playAudio,
-    stopAudio
+    stopAudio,
+    startVoiceStreaming,
+    endVoiceStreaming,
+    authToken
   });
 
   // Use chat loader hook
@@ -77,8 +117,6 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     LESSON_CHAT_ID_STORAGE_KEY
   });
 
-
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -87,14 +125,12 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     scrollToBottom();
   }, [messages]);
 
- 
-
-
   // Combined reset function
   const resetChat = () => {
     resetChatState();
     stopAudio();
     stopTestAudio();
+    cleanupMessageHandler(); // Clean up WebSocket connections
     setInput('');
     setIsLoading(false);
     setIsLoadingPreviousMessages(false);
@@ -107,11 +143,12 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || !isSignedIn) return;
+    if (!input.trim() || isLoading || !isSignedIn || !authToken) return;
     
     const message = input.trim();
     setInput('');
-    await submitMessage(message);
+    // Use both settings from state
+    await submitMessage(message, imageGenerationEnabled, voiceEnabled);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -121,18 +158,22 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     }
   };
 
-    // Cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       console.log('GlassChatInterface cleanup effect running');
       cleanupAudio();
+      cleanupMessageHandler(); // Clean up WebSocket connections
     };
-  }, []); // Empty dependency array - only run on unmount
+  }, []); // Remove dependencies - only run on unmount
 
   const getPlaceholder = () => {
     if (!isSignedIn) return "Please sign in to chat...";
+    if (!authToken) return "Authenticating...";
     if (isLoadingPreviousMessages) return "Loading previous messages...";
     if (isLoading) return "Russell is contemplating";
+    if (isVoiceStreaming) return "Russell is speaking...";
+    if (isImageGenerating) return "Generating image...";
     if (isLessonMode) return "Ask about black holes...";
     return "Type your message...";
   };
@@ -142,8 +183,8 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
   };
 
   const handleStartLesson = async () => {
-    if (!isSignedIn || isLoading) return;
-    await submitMessage("Let's start the black hole lesson! Teach me about black holes");
+    if (!isSignedIn || isLoading || !authToken) return;
+    await submitMessage("Let's start the black hole lesson! Teach me about black holes", imageGenerationEnabled, voiceEnabled);
   };
 
   return (
@@ -154,7 +195,12 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
           ? 'bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-purple-500/10 border border-purple-400/30' 
           : 'bg-white/10 border border-white/20'
       }`}>
-        <ChatHeader isLessonMode={isLessonMode} onReset={resetChat} />
+        <ChatHeader 
+          isLessonMode={isLessonMode} 
+          onReset={resetChat}
+          onImageGenerationToggle={setImageGenerationEnabled}
+          onVoiceToggle={setVoiceEnabled}
+        />
         
         <ChatMessageList 
           messages={messages}
@@ -174,7 +220,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
         <ChatInputArea
           input={input}
           isSignedIn={isSignedIn}
-          isLoading={isLoading}
+          isLoading={isLoading || isVoiceStreaming || isImageGenerating}
           isLoadingPreviousMessages={isLoadingPreviousMessages}
           isLessonMode={isLessonMode}
           onInputChange={setInput}

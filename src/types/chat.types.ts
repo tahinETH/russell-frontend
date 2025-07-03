@@ -6,6 +6,10 @@ export interface Message {
   isLoading?: boolean;
   chatId?: string;
   hasAudio?: boolean;
+  imageUrl?: string;
+  imagePrompt?: string;
+  isGeneratingImage?: boolean;
+  imageError?: string;
 }
 
 export interface QueryResponse {
@@ -42,4 +46,11 @@ export interface GlassChatInterfaceRef {
 
 export interface GlassChatInterfaceProps {
   onNewAiMessage?: (message: string) => void;
+}
+
+export interface ImageGenerationState {
+  isGenerating: boolean;
+  prompt?: string;
+  url?: string;
+  error?: string;
 } 

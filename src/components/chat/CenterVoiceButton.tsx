@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, ArrowUp } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
-import { useApi } from '@/providers/backend';
 
 interface CenterVoiceButtonProps {
   onTranscriptionComplete: (text: string) => void;
   disabled?: boolean;
+  isVoicePlaying?: boolean;
+  isProcessing?: boolean;
 }
 
 interface TranscriptionResponse {
@@ -15,29 +16,21 @@ interface TranscriptionResponse {
   message: string;
 }
 
-interface QueryResponse {
-  text_response: string;
-  audio_base64?: string;
-  audio_format?: string;
-  context_chunks?: number;
-  processing_time?: number;
-  chat_id?: string;
-}
-
-export default function CenterVoiceButton({ onTranscriptionComplete, disabled = false }: CenterVoiceButtonProps) {
+export default function CenterVoiceButton({ 
+  onTranscriptionComplete, 
+  disabled = false, 
+  isVoicePlaying = false, 
+  isProcessing = false 
+}: CenterVoiceButtonProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isVoicePlaying, setIsVoicePlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   
   const { getToken, isSignedIn } = useAuth();
-  const api = useApi();
 
   // Function to send voice input to backend for transcription
   const transcribeVoice = async (audioBlob: Blob): Promise<string> => {
@@ -65,55 +58,6 @@ export default function CenterVoiceButton({ onTranscriptionComplete, disabled = 
       console.error('Error transcribing voice:', error);
       throw error;
     }
-  };
-
-  // Convert base64 to audio and play
-  const playAudio = (base64Audio: string, format: string = 'mp3') => {
-    // Stop any currently playing audio
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      URL.revokeObjectURL(currentAudioRef.current.src);
-    }
-
-    const byteCharacters = atob(base64Audio);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const audioBlob = new Blob([byteArray], { type: `audio/${format}` });
-    const audioUrl = URL.createObjectURL(audioBlob);
-    
-    const audio = new Audio(audioUrl);
-    currentAudioRef.current = audio;
-
-    audio.onended = () => {
-      URL.revokeObjectURL(audioUrl);
-      setIsVoicePlaying(false);
-      currentAudioRef.current = null;
-      setIsProcessing(false);
-    };
-
-    audio.onerror = () => {
-      console.error('Audio playback error');
-      URL.revokeObjectURL(audioUrl);
-      setIsVoicePlaying(false);
-      currentAudioRef.current = null;
-      setIsProcessing(false);
-    };
-
-    setIsVoicePlaying(true);
-    audio.play().catch(console.error);
-  };
-
-  // Stop any playing audio
-  const stopAudio = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      URL.revokeObjectURL(currentAudioRef.current.src);
-      currentAudioRef.current = null;
-    }
-    setIsVoicePlaying(false);
   };
 
   // Timer effect for recording
@@ -166,19 +110,13 @@ export default function CenterVoiceButton({ onTranscriptionComplete, disabled = 
         try {
           const transcribedText = await transcribeVoice(audioBlob);
           if (transcribedText.trim()) {
-            setIsTranscribing(false);
-            setIsProcessing(true);
-            
-            // Send transcribed text to chat interface
+            // Send transcribed text to chat interface - it will handle the WebSocket flow
             onTranscriptionComplete(transcribedText);
-            
-            // Start voice query with transcribed text
-            await processVoiceQuery(transcribedText);
           }
         } catch (error) {
           console.error('Transcription failed:', error);
+        } finally {
           setIsTranscribing(false);
-          setIsProcessing(false);
         }
       };
 
@@ -196,46 +134,15 @@ export default function CenterVoiceButton({ onTranscriptionComplete, disabled = 
     }
   };
 
-  const processVoiceQuery = async (transcribedText: string) => {
-    try {
-      stopAudio(); // Stop any currently playing audio
-      
-      const data: QueryResponse = await api.post('/query', {
-        query: transcribedText,
-        enable_voice: true,
-      });
-      
-      // Play audio if available
-      if (data.audio_base64) {
-        const format = data.audio_format || 'mp3';
-        playAudio(data.audio_base64, format);
-      } else {
-        // If no audio, end processing
-        setIsProcessing(false);
-      }
-      
-    } catch (error) {
-      console.error('Failed to process voice query:', error);
-      setIsProcessing(false);
-    }
-  };
-
   const handleVoiceInput = () => {
     if (!isSignedIn) return;
     
     if (isRecording) {
       stopRecording();
-    } else if (!isTranscribing && !isProcessing) {
+    } else if (!isTranscribing && !isProcessing && !isVoicePlaying) {
       startRecording();
     }
   };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopAudio();
-    };
-  }, []);
 
   const getButtonText = () => {
     if (!isSignedIn) return "Sign in to use voice";
@@ -278,7 +185,7 @@ export default function CenterVoiceButton({ onTranscriptionComplete, disabled = 
       {/* Main voice button */}
       <button
         onClick={handleVoiceInput}
-        disabled={disabled || isTranscribing || isProcessing || !isSignedIn}
+        disabled={disabled || isTranscribing || isProcessing || isVoicePlaying || !isSignedIn}
         className={`relative group transition-all duration-300 ${
           isRecording ? 'scale-110' : 'hover:scale-105'
         }`}

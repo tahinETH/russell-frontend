@@ -9,13 +9,19 @@ export interface Message {
   chatId?: string;
   isLoading?: boolean;
   isStreaming?: boolean;
+  // Image-related fields
+  imageUrl?: string;
+  imagePrompt?: string;
+  isGeneratingImage?: boolean;
+  imageError?: string;
 }
 
 interface ChatMessageProps {
   message: Message;
+  isLessonMode?: boolean;
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({ message, isLessonMode = false }: ChatMessageProps) {
   const isUser = message.type === 'user';
 
   return (
@@ -25,32 +31,35 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       }`}
     >
       {!isUser && (
-        <div className="rounded-full bg-slate-200 flex items-center justify-center border border-slate-300">
-          <Image 
-            src="/img/locky4.png" 
-            alt="Russell AI" 
-            width={48} 
-            height={48} 
-         
-          />
+        <div className={`w-8 h-8 rounded-full backdrop-blur-sm flex items-center justify-center flex-shrink-0 ${
+          isLessonMode ? 'bg-purple-400/20' : 'bg-white/20'
+        }`}>
+          <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${
+            isLessonMode ? 'from-purple-400 to-blue-500' : 'from-blue-400 to-purple-500'
+          }`} />
         </div>
       )}
       
       <div 
-        className={`max-w-[80%] p-3 rounded-2xl shadow-sm ${
-          isUser ? 
-            'bg-blue-700 text-white' : 
-            'bg-slate-100 text-slate-900 border border-slate-200'
+        className={`max-w-[75%] px-4 py-2 rounded-2xl ${
+          isUser
+            ? isLessonMode 
+              ? 'bg-purple-500/80 backdrop-blur-sm text-white'
+              : 'bg-blue-500/80 backdrop-blur-sm text-white'
+            : isLessonMode
+              ? 'bg-gradient-to-br from-purple-500/20 to-blue-500/20 backdrop-blur-sm text-white border border-purple-400/20'
+              : 'bg-white/20 backdrop-blur-sm text-white border border-white/10'
         }`}
       >
         {message.isLoading && !message.content ? (
-          <div className="flex items-center gap-2 text-sm text-slate-900">
-            <div className="animate-spin w-4 h-4 border-2 border-primary-dark border-t-transparent rounded-full"></div>
-            
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         ) : (
           <div className="relative">
-            <div className="text-sm leading-relaxed prose prose-sm max-w-none">
+            <div className="text-sm">
               {isUser ? (
                 // For user messages, preserve line breaks but don't parse markdown
                 <div className="whitespace-pre-wrap">{message.content}</div>
@@ -69,17 +78,17 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                     h2: ({children}) => <h2 className="text-base font-bold mb-2">{children}</h2>,
                     h3: ({children}) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
                     // Customize code
-                    code: ({children}) => <code className="bg-slate-200 px-1 py-0.5 rounded text-xs">{children}</code>,
-                    pre: ({children}) => <pre className="bg-slate-200 p-2 rounded mb-2 overflow-x-auto text-xs">{children}</pre>,
+                    code: ({children}) => <code className="bg-white/10 px-1 py-0.5 rounded text-xs">{children}</code>,
+                    pre: ({children}) => <pre className="bg-white/10 p-2 rounded mb-2 overflow-x-auto text-xs">{children}</pre>,
                     // Customize blockquotes
-                    blockquote: ({children}) => <blockquote className="border-l-4 border-slate-300 pl-3 italic mb-2">{children}</blockquote>,
+                    blockquote: ({children}) => <blockquote className="border-l-4 border-white/30 pl-3 italic mb-2">{children}</blockquote>,
                     // Customize links
                     a: ({href, children}) => (
                       <a 
                         href={href} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 underline-offset-2 transition-colors duration-200"
+                        className="text-blue-300 hover:text-blue-200 underline"
                       >
                         {children}
                       </a>
@@ -91,14 +100,64 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               )}
             </div>
             {message.isStreaming && (
-              <span className="inline-block w-2 h-4 bg-primary-dark animate-pulse ml-1"></span>
+              <span className="inline-block w-2 h-4 bg-white/60 animate-pulse ml-1"></span>
             )}
           </div>
+        )}
+        
+        {/* Image section for AI messages */}
+        {!isUser && (
+          <>
+            {/* Show image loading state */}
+            {message.isGeneratingImage && (
+              <div className="mt-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+                <div className="flex items-center gap-2 text-sm text-white/80">
+                  <div className="animate-spin w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full"></div>
+                  <span>Generating image...</span>
+                </div>
+                {message.imagePrompt && (
+                  <p className="mt-2 text-xs text-white/60 italic">
+                    Prompt: {message.imagePrompt}
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* Show generated image */}
+            {message.imageUrl && !message.isGeneratingImage && (
+              <div className="mt-3">
+                <div className="relative rounded-lg overflow-hidden border border-white/20 shadow-lg backdrop-blur-sm">
+                  <Image 
+                    src={message.imageUrl}
+                    alt="AI generated image"
+                    width={400}
+                    height={400}
+                    className="w-full h-auto"
+                    unoptimized // Since these are external URLs
+                  />
+                </div>
+                {message.imagePrompt && (
+                  <p className="mt-2 text-xs text-white/60 italic">
+                    Image prompt: {message.imagePrompt}
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* Show image error */}
+            {message.imageError && (
+              <div className="mt-3 p-3 bg-red-500/20 backdrop-blur-sm rounded-lg border border-red-400/30">
+                <p className="text-sm text-red-200">
+                  Failed to generate image: {message.imageError}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
       
       {isUser && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-dark flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
           <User className="h-4 w-4 text-white" />
         </div>
       )}

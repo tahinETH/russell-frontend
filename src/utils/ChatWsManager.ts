@@ -4,11 +4,14 @@
  * 1. FE opens a WebSocket connection to the BE.
  * 2. FE authenticates with JWT token by sending {"type": "auth", "token": "jwt_token"}.
  * 3. BE responds with {"type": "auth_success", "user_id": "user_id"}.
- * 4. FE sends a question to the BE as JSON: {"type": "chat", "message": "question", "chat_id": "optional"}.
- * 5. BE sends {"type": "chat_start", "chat_id": "id", "message_id": "id"}.
- * 6. BE streams answer pieces as {"type": "chat_chunk", "content": "piece", "chat_id": "id"}.
- * 7. BE sends {"type": "chat_complete", "chat_id": "id", "message_id": "id", "full_response": "complete_answer"}.
- * 8. BE can send errors as {"type": "error", "error": "message"} and then close the connection.
+ * 4. FE sends a question to the BE as JSON: {"type": "chat", "message": "question", "chat_id": "optional", "enable_voice": true}.
+ * 5. BE sends {"type": "chat_start", "chat_id": "id", "message_id": "id", "voice_enabled": true}.
+ * 6. BE sends {"type": "text_complete", "full_response": "complete_text", "chat_id": "id"}.
+ * 7. BE sends {"type": "voice_start", "chat_id": "id"} (if voice enabled).
+ * 8. BE streams voice as {"type": "voice_chunk", "audio": "base64", "format": "mp3", "chat_id": "id"}.
+ * 9. BE sends {"type": "voice_complete", "chat_id": "id"}.
+ * 10. BE sends {"type": "chat_complete", "chat_id": "id", "voice_enabled": true}.
+ * 11. BE can send errors as {"type": "error", "error": "message"} and then close the connection.
  */
 
 interface ApiInfo {
@@ -22,8 +25,17 @@ interface Callbacks {
   onError?: (reason: string) => void;
   onConnect?: () => void;
   onAuthenticated?: () => void;
-  onChatStart?: (chatId: string, messageId: string) => void;
-  onChatComplete?: (chatId: string, messageId: string, fullResponse: string) => void;
+  onChatStart?: (chatId: string, messageId: string, voiceEnabled: boolean, imageEnabled?: boolean) => void;
+  onTextComplete?: (chatId: string, fullResponse: string) => void;
+  onVoiceStart?: (chatId: string) => void;
+  onVoiceChunk?: (chatId: string, audioData: string, format: string) => void;
+  onVoiceComplete?: (chatId: string) => void;
+  onChatComplete?: (chatId: string, messageId: string, fullResponse: string, voiceEnabled: boolean, imageEnabled?: boolean) => void;
+  // Image-related callbacks
+  onImageStart?: (chatId: string, prompt: string) => void;
+  onImageProgress?: (chatId: string, message: string) => void;
+  onImageComplete?: (chatId: string, imageUrl: string) => void;
+  onImageError?: (chatId: string, error: string) => void;
 }
 
 interface ChatWsManagerOptions {
@@ -33,6 +45,8 @@ interface ChatWsManagerOptions {
   chatId?: string;
   authToken: string;
   timeout?: number;
+  enableVoice?: boolean;
+  enableImage?: boolean;
 }
 
 /**
@@ -59,6 +73,12 @@ export class ChatWsManager {
    */
   currentChatId: string | null = null;
 
+  /**
+   * @property {boolean} voiceEnabled - Whether voice is enabled for current chat.
+   * @public
+   */
+  voiceEnabled = false;
+
   private _options: ChatWsManagerOptions;
   private _ws: WebSocket;
   private _timeoutId: NodeJS.Timeout | null = null;
@@ -70,6 +90,8 @@ export class ChatWsManager {
   constructor(options: ChatWsManagerOptions) {
     this._options = {
       timeout: 30000, // 30 seconds default
+      enableVoice: false,
+      enableImage: false,
       ...options
     };
 
@@ -154,6 +176,8 @@ export class ChatWsManager {
     const chatPayload = {
       type: 'chat',
       message: this._options.question,
+      enable_voice: this._options.enableVoice || false,
+      enable_image: this._options.enableImage || false,
       ...(this._options.chatId && { chat_id: this._options.chatId })
     };
     this._ws.send(JSON.stringify(chatPayload));
@@ -218,7 +242,110 @@ export class ChatWsManager {
       return;
     }
 
-    // Handle new format: stream_start
+    // Handle chat start (new voice-first format)
+    if (message.type === 'chat_start') {
+      this.currentChatId = message.chat_id;
+      this.voiceEnabled = message.voice_enabled || false;
+      // Reset answer accumulator for new chat
+      this.answer = '';
+      if (this._options.callbacks.onChatStart) {
+        this._options.callbacks.onChatStart(message.chat_id, message.message_id, this.voiceEnabled, message.image_enabled || false);
+      }
+      return;
+    }
+
+    // Handle text complete (new voice-first format)
+    if (message.type === 'text_complete') {
+      this.answer = message.full_response;
+      this._options.callbacks.setAnswer(this.answer);
+      
+      if (this._options.callbacks.onTextComplete) {
+        this._options.callbacks.onTextComplete(message.chat_id, message.full_response);
+      }
+      return;
+    }
+
+    // Handle voice start (new voice-first format)
+    if (message.type === 'voice_start') {
+      if (this._options.callbacks.onVoiceStart) {
+        this._options.callbacks.onVoiceStart(message.chat_id);
+      }
+      return;
+    }
+
+    // Handle voice chunk (new voice-first format)
+    if (message.type === 'voice_chunk') {
+      if (this._options.callbacks.onVoiceChunk) {
+        this._options.callbacks.onVoiceChunk(
+          message.chat_id, 
+          message.audio, 
+          message.format || 'mp3'
+        );
+      }
+      return;
+    }
+
+    // Handle voice complete (new voice-first format)
+    if (message.type === 'voice_complete') {
+      if (this._options.callbacks.onVoiceComplete) {
+        this._options.callbacks.onVoiceComplete(message.chat_id);
+      }
+      return;
+    }
+
+    // Handle chat complete (new voice-first format)
+    if (message.type === 'chat_complete') {
+      // Clear timeout since chat is complete
+      this._clearTimeout();
+      
+      if (this._options.callbacks.onChatComplete) {
+        this._options.callbacks.onChatComplete(
+          message.chat_id, 
+          message.message_id || `msg-${Date.now()}`,
+          this.answer,
+          message.voice_enabled || false,
+          message.image_enabled || false
+        );
+      }
+      
+      // Optionally close the connection after completion
+      setTimeout(() => this.close(), 1000);
+      return;
+    }
+
+    // Handle image start
+    if (message.type === 'image_start') {
+      if (this._options.callbacks.onImageStart) {
+        this._options.callbacks.onImageStart(message.chat_id, message.prompt || '');
+      }
+      return;
+    }
+
+    // Handle image progress
+    if (message.type === 'image_progress') {
+      if (this._options.callbacks.onImageProgress) {
+        this._options.callbacks.onImageProgress(message.chat_id, message.message || 'Generating image...');
+      }
+      return;
+    }
+
+    // Handle image complete
+    if (message.type === 'image_complete') {
+      if (this._options.callbacks.onImageComplete) {
+        this._options.callbacks.onImageComplete(message.chat_id, message.image_url);
+      }
+      return;
+    }
+
+    // Handle image error
+    if (message.type === 'image_error') {
+      if (this._options.callbacks.onImageError) {
+        this._options.callbacks.onImageError(message.chat_id, message.error || 'Failed to generate image');
+      }
+      return;
+    }
+
+    // Handle legacy format: stream_start
     if (message.type === 'stream_start') {
       // Extract chat_id if present in the message
       const chatId = message.chat_id || this.currentChatId || 'unknown';
@@ -227,12 +354,12 @@ export class ChatWsManager {
       if (this._options.callbacks.onChatStart) {
         // Use query from stream_start or generate a message ID
         const messageId = message.message_id || `msg-${Date.now()}`;
-        this._options.callbacks.onChatStart(chatId, messageId);
+        this._options.callbacks.onChatStart(chatId, messageId, false, false);
       }
       return;
     }
 
-    // Handle new format: chunk (streaming response)
+    // Handle legacy format: chunk (streaming response)
     if (message.type === 'chunk') {
       const answerPiece = message.content;
       this.answer = this.answer + answerPiece;
@@ -241,7 +368,7 @@ export class ChatWsManager {
       return;
     }
 
-    // Handle new format: complete
+    // Handle legacy format: complete
     if (message.type === 'complete') {
       // Clear timeout since chat is complete
       this._clearTimeout();
@@ -258,7 +385,9 @@ export class ChatWsManager {
         this._options.callbacks.onChatComplete(
           chatId, 
           messageId, 
-          message.full_response
+          message.full_response,
+          false,
+          false
         );
       }
       
@@ -272,43 +401,11 @@ export class ChatWsManager {
       return;
     }
 
-    // Handle legacy format: chat_start (for backward compatibility)
-    if (message.type === 'chat_start') {
-      this.currentChatId = message.chat_id;
-      // Reset answer accumulator for new chat
-      this.answer = '';
-      if (this._options.callbacks.onChatStart) {
-        this._options.callbacks.onChatStart(message.chat_id, message.message_id);
-      }
-      return;
-    }
-
     // Handle legacy format: chat_chunk (for backward compatibility)
     if (message.type === 'chat_chunk') {
       const answerPiece = message.content;
       this.answer = this.answer + answerPiece;
       this._options.callbacks.setAnswer(this.answer);
-      return;
-    }
-
-    // Handle legacy format: chat_complete (for backward compatibility)
-    if (message.type === 'chat_complete') {
-      // Clear timeout since chat is complete
-      this._clearTimeout();
-      
-      if (message.full_response) {
-        this.answer = message.full_response;
-        this._options.callbacks.setAnswer(this.answer);
-      }
-      if (this._options.callbacks.onChatComplete) {
-        this._options.callbacks.onChatComplete(
-          message.chat_id, 
-          message.message_id, 
-          message.full_response
-        );
-      }
-      // Optionally close the connection after completion
-      setTimeout(() => this.close(), 1000);
       return;
     }
 
