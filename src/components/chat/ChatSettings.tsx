@@ -1,27 +1,32 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { Settings, Image as ImageIcon, Mic } from 'lucide-react';
+import { Settings, Image as ImageIcon, Mic, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 
 interface ChatSettingsProps {
   onImageGenerationToggle?: (enabled: boolean) => void;
   onVoiceToggle?: (enabled: boolean) => void;
+  onExpertiseChange?: (level: number) => void;
 }
 
 export default function ChatSettings({ 
   onImageGenerationToggle,
-  onVoiceToggle 
+  onVoiceToggle,
+  onExpertiseChange
 }: ChatSettingsProps) {
   const [imageEnabled, setImageEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [expertiseLevel, setExpertiseLevel] = useState(3);
 
   // Load preferences from localStorage
   useEffect(() => {
     const savedImageEnabled = localStorage.getItem('chat-image-enabled');
     const savedVoiceEnabled = localStorage.getItem('chat-voice-enabled');
+    const savedExpertiseLevel = localStorage.getItem('chat-expertise-level');
     
     if (savedImageEnabled !== null) {
       const enabled = savedImageEnabled === 'true';
@@ -31,6 +36,13 @@ export default function ChatSettings({
     if (savedVoiceEnabled !== null) {
       const enabled = savedVoiceEnabled === 'true';
       setVoiceEnabled(enabled);
+    }
+    
+    if (savedExpertiseLevel !== null) {
+      const level = parseInt(savedExpertiseLevel, 10);
+      if (level >= 1 && level <= 5) {
+        setExpertiseLevel(level);
+      }
     }
   }, []);
 
@@ -46,6 +58,18 @@ export default function ChatSettings({
     setVoiceEnabled(newValue);
     localStorage.setItem('chat-voice-enabled', newValue.toString());
     onVoiceToggle?.(newValue);
+  };
+
+  const handleExpertiseChange = (values: number[]) => {
+    const newLevel = values[0];
+    setExpertiseLevel(newLevel);
+    localStorage.setItem('chat-expertise-level', newLevel.toString());
+    onExpertiseChange?.(newLevel);
+  };
+
+  const getExpertiseLabel = (level: number) => {
+    const labels = ['', 'ELI5', 'Beginner', 'Intermediate', 'Advanced', 'Expert'];
+    return labels[level] || 'Intermediate';
   };
 
   return (
@@ -114,6 +138,34 @@ export default function ChatSettings({
               }`} />
             </div>
           </button>
+
+          <Separator className="my-1" />
+
+          {/* Expertise Level Slider */}
+          <div className="px-3 py-3">
+            <div className="flex items-center gap-3 mb-3">
+              <GraduationCap className="h-4 w-4 text-slate-600" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-slate-900">Expertise Level</p>
+                <p className="text-xs text-slate-500">How detailed should responses be?</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-500">ELI5</span>
+                <span className="text-xs font-medium text-slate-700">{getExpertiseLabel(expertiseLevel)}</span>
+                <span className="text-xs text-slate-500">Expert</span>
+              </div>
+              <Slider
+                value={[expertiseLevel]}
+                onValueChange={handleExpertiseChange}
+                min={1}
+                max={5}
+                step={1}
+                className="w-full"
+              />
+            </div>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

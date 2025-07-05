@@ -40,7 +40,7 @@ export const useMessageHandler = ({
   const currentMessageIdRef = useRef<string | null>(null);
   const [isImageGenerating, setIsImageGenerating] = useState(false);
   
-  const submitMessage = useCallback(async (inputMessage: string, enableImage: boolean = true, enableVoice: boolean = true) => {
+  const submitMessage = useCallback(async (inputMessage: string, enableImage: boolean = true, enableVoice: boolean = true, expertiseLevel: number = 3) => {
     if (!inputMessage.trim() || isLoading) return;
     
     // Fetch auth token for this submission
@@ -121,7 +121,7 @@ export const useMessageHandler = ({
             console.log('WebSocket authenticated');
           },
           onChatStart: (chatId: string, messageId: string, voiceEnabled: boolean, imageEnabled?: boolean) => {
-            console.log('Chat started:', { chatId, messageId, voiceEnabled, imageEnabled });
+            console.log('Chat started:', { chatId, messageId, voiceEnabled, imageEnabled, isLessonMode });
             updateChatId(chatId);
             if (imageEnabled) {
               setIsImageGenerating(true);
@@ -253,7 +253,9 @@ export const useMessageHandler = ({
         authToken: authToken,
         timeout: 30000,
         enableVoice: enableVoice,
-        enableImage: enableImage
+        enableImage: enableImage,
+        isLessonMode: isLessonMode,
+        expertiseLevel: expertiseLevel
       });
 
       wsManagerRef.current = wsManager;

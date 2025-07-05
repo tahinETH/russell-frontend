@@ -69,6 +69,7 @@ export const useChatLoader = ({
         // Handle images from database
         imageUrl: msg.images && msg.images.length > 0 ? msg.images[0].image_url : undefined
       }));
+      console.log('transformedMessages', transformedMessages);
       
       setMessages(transformedMessages);
       console.log(`Loaded ${transformedMessages.length} messages from previous session`);

@@ -20,6 +20,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
   const [isLoadingPreviousMessages, setIsLoadingPreviousMessages] = useState(false);
   const [imageGenerationEnabled, setImageGenerationEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [expertiseLevel, setExpertiseLevel] = useState(3); // Default to middle level (3/5)
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isSignedIn, getToken } = useAuth();
@@ -55,6 +56,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
   useEffect(() => {
     const savedImageEnabled = localStorage.getItem('chat-image-enabled');
     const savedVoiceEnabled = localStorage.getItem('chat-voice-enabled');
+    const savedExpertiseLevel = localStorage.getItem('chat-expertise-level');
     
     if (savedImageEnabled !== null) {
       setImageGenerationEnabled(savedImageEnabled === 'true');
@@ -62,6 +64,13 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     
     if (savedVoiceEnabled !== null) {
       setVoiceEnabled(savedVoiceEnabled === 'true');
+    }
+    
+    if (savedExpertiseLevel !== null) {
+      const level = parseInt(savedExpertiseLevel, 10);
+      if (level >= 1 && level <= 5) {
+        setExpertiseLevel(level);
+      }
     }
   }, []);
 
@@ -126,8 +135,8 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     
     const message = input.trim();
     setInput('');
-    // Use both settings from state
-    await submitMessage(message, imageGenerationEnabled, voiceEnabled);
+    // Use all settings from state
+    await submitMessage(message, imageGenerationEnabled, voiceEnabled, expertiseLevel);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -162,11 +171,11 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
 
   const handleStartLesson = async () => {
     if (!isSignedIn || isLoading) return;
-    await submitMessage("Let's start the black hole lesson! Teach me about black holes", imageGenerationEnabled, voiceEnabled);
+    await submitMessage("Let's start the black hole lesson! Teach me about black holes", imageGenerationEnabled, voiceEnabled, expertiseLevel);
   };
 
   return (
-    <div className="fixed right-6 top-6 bottom-6 w-96 flex flex-col">
+    <div className="fixed right-6 top-6 bottom-6 w-96 2xl:w-[600px] flex flex-col">
       {/* Glass container */}
       <div className={`flex-1 flex flex-col backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 ${
         isLessonMode 
@@ -178,6 +187,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
           onReset={resetChat}
           onImageGenerationToggle={setImageGenerationEnabled}
           onVoiceToggle={setVoiceEnabled}
+          onExpertiseChange={setExpertiseLevel}
         />
         
         <ChatMessageList 

@@ -4,7 +4,7 @@
  * 1. FE opens a WebSocket connection to the BE.
  * 2. FE authenticates with JWT token by sending {"type": "auth", "token": "jwt_token"}.
  * 3. BE responds with {"type": "auth_success", "user_id": "user_id"}.
- * 4. FE sends a question to the BE as JSON: {"type": "chat", "message": "question", "chat_id": "optional", "enable_voice": true}.
+ * 4. FE sends a question to the BE as JSON: {"type": "chat", "message": "question", "chat_id": "optional", "enable_voice": true, "enable_image": true, "lesson": "blackholes"}.
  * 5. BE sends {"type": "chat_start", "chat_id": "id", "message_id": "id", "voice_enabled": true}.
  * 6. BE sends {"type": "text_complete", "full_response": "complete_text", "chat_id": "id"}.
  * 7. BE sends {"type": "voice_start", "chat_id": "id"} (if voice enabled).
@@ -47,6 +47,8 @@ interface ChatWsManagerOptions {
   timeout?: number;
   enableVoice?: boolean;
   enableImage?: boolean;
+  isLessonMode?: boolean;
+  expertiseLevel?: number;
 }
 
 /**
@@ -178,7 +180,9 @@ export class ChatWsManager {
       message: this._options.question,
       enable_voice: this._options.enableVoice || false,
       enable_image: this._options.enableImage || false,
-      ...(this._options.chatId && { chat_id: this._options.chatId })
+      ...(this._options.isLessonMode && { lesson: 'blackholes' }),
+      ...(this._options.chatId && { chat_id: this._options.chatId }),
+      ...(this._options.expertiseLevel && { expertise: this._options.expertiseLevel })
     };
     this._ws.send(JSON.stringify(chatPayload));
   }

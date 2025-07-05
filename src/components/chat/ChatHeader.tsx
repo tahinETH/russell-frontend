@@ -7,13 +7,15 @@ interface ChatHeaderProps {
   onReset: () => void;
   onImageGenerationToggle?: (enabled: boolean) => void;
   onVoiceToggle?: (enabled: boolean) => void;
+  onExpertiseChange?: (level: number) => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({ 
   isLessonMode, 
   onReset,
   onImageGenerationToggle,
-  onVoiceToggle
+  onVoiceToggle,
+  onExpertiseChange
 }) => {
   return (
     <div className={`px-6 py-4 border-b ${isLessonMode ? 'border-purple-400/20' : 'border-white/10'}`}>
@@ -25,6 +27,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <ChatSettings 
             onImageGenerationToggle={onImageGenerationToggle}
             onVoiceToggle={onVoiceToggle}
+            onExpertiseChange={onExpertiseChange}
           />
           <button
             onClick={onReset}
