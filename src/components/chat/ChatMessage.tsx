@@ -1,6 +1,9 @@
 import { User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Image from 'next/image';
+import { useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export interface Message {
   type: 'user' | 'ai';
@@ -22,6 +25,7 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ message, isLessonMode = false }: ChatMessageProps) {
   const isUser = message.type === 'user';
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
 
   return (
     <div 
@@ -107,29 +111,44 @@ export default function ChatMessage({ message, isLessonMode = false }: ChatMessa
         {/* Image section for AI messages */}
         {!isUser && (
           <>
-            {/* Show image loading state */}
+            {/* Show image loading skeleton */}
             {message.isGeneratingImage && (
-              <div className="mt-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                <div className="flex items-center gap-2 text-sm text-white/80">
-                  <div className="animate-spin w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full"></div>
-                  <span>Generating image...</span>
-                </div>
+              <div className="mt-3 space-y-2">
+                
+                <Skeleton className="h-48 w-full bg-white/20 rounded-lg" />
               </div>
             )}
             
             {/* Show generated image */}
             {message.imageUrl && !message.isGeneratingImage && (
               <div className="mt-3">
-                <div className="relative rounded-lg overflow-hidden border border-white/20 shadow-lg backdrop-blur-sm">
-                  <Image 
-                    src={message.imageUrl}
-                    alt="AI generated image"
-                    width={400}
-                    height={400}
-                    className="w-full h-auto"
-                    unoptimized // Since these are external URLs
-                  />
-                </div>
+                <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+                  <DialogTitle className="sr-only">Image</DialogTitle>
+                  <DialogTrigger asChild>
+                    <div className="relative rounded-lg overflow-hidden border border-white/20 shadow-lg backdrop-blur-sm cursor-pointer hover:opacity-80 transition-opacity">
+                      <Image 
+                        src={message.imageUrl}
+                        alt="AI generated image"
+                        width={400}
+                        height={400}
+                        className="w-full h-auto"
+                        unoptimized // Since these are external URLs
+                      />
+                    </div>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl w-full p-0 bg-black/90 border-none">
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <Image 
+                        src={message.imageUrl}
+                        alt="AI generated image"
+                        width={800}
+                        height={800}
+                        className="max-w-full max-h-[90vh] object-contain"
+                        unoptimized // Since these are external URLs
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
             
