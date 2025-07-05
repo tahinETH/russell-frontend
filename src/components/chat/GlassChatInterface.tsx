@@ -198,12 +198,12 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
           messagesEndRef={messagesEndRef}
         />
 
-        <LessonModeBanner 
+       {/*  <LessonModeBanner 
           isLessonMode={isLessonMode}
           onToggleLessonMode={handleToggleLessonMode}
           onStartLesson={handleStartLesson}
           hasMessages={messages.length > 0}
-        />
+        /> */}
 
         <ChatInputArea
           input={input}
