@@ -1,4 +1,4 @@
-import ChatPageClient from './ChatPageClient';
+
 
 
 interface PageProps {
@@ -10,5 +10,7 @@ interface PageProps {
 export default async function ChatPage({ params }: PageProps) {
   const { chatId } = await params;
   
-  return <ChatPageClient chatId={chatId} />;
+  return <div>
+
+  </div>
 } 
