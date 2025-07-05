@@ -1,76 +1,230 @@
 import { useRef, useState, useCallback } from 'react';
 
-interface AudioQueue {
-  push: (chunk: ArrayBuffer) => void;
-  clear: () => void;
-}
-
-const createSimpleAudioQueue = (audioContext: AudioContext): AudioQueue => {
-  const queue: ArrayBuffer[] = [];
-  let isPlaying = false;
-
-  const playNext = async () => {
-    if (queue.length === 0 || isPlaying) return;
-
-    isPlaying = true;
-    const chunk = queue.shift()!;
-
-    try {
-      const audioBuffer = await audioContext.decodeAudioData(chunk);
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      
-      // Minimal processing for now - just basic gain for volume control
-      const gainNode = audioContext.createGain();
-      gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
-      
-      source.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      source.onended = () => {
-        isPlaying = false;
-        playNext(); // Automatically continue - NO GAPS!
-      };
-
-      source.start(0);
-    } catch (error) {
-      console.error('Error playing chunk:', error);
-      isPlaying = false;
-      playNext(); // Continue with next chunk even if this one failed
-    }
-  };
-
-  return {
-    push: (chunk: ArrayBuffer) => {
-      queue.push(chunk);
-      if (!isPlaying) playNext();
-    },
-    clear: () => {
-      queue.length = 0;
-      isPlaying = false;
-    }
-  };
-};
-
 export const useAudioProcessing = () => {
   const [isVoicePlaying, setIsVoicePlaying] = useState(false);
   const [isTestPlaying, setIsTestPlaying] = useState(false);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<AudioQueue | null>(null);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const testSourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // Initialize audio context and queue
+  // Initialize audio context
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      console.log('Created new audio context, state:', audioContextRef.current.state);
-      
-      // Create the simple audio queue
-      audioQueueRef.current = createSimpleAudioQueue(audioContextRef.current);
+      console.log('🎵 Created new audio context, state:', audioContextRef.current.state);
     }
     return audioContextRef.current;
   }, []);
+
+  // Convert base64 to ArrayBuffer
+  const base64ToArrayBuffer = useCallback((base64: string): ArrayBuffer => {
+    const startTime = performance.now();
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const endTime = performance.now();
+    
+    console.log('🎵 base64 conversion:', {
+      inputLength: base64.length,
+      outputSize: byteArray.buffer.byteLength,
+      conversionTime: endTime - startTime
+    });
+    
+    return byteArray.buffer;
+  }, []);
+
+  // Play complete audio file
+  const playAudio = useCallback(async (base64Audio: string, format: string = 'mp3') => {
+    const startTime = performance.now();
+    console.log('🎵 playAudio called:', { 
+      format, 
+      audioLength: base64Audio?.length,
+      timestamp: startTime
+    });
+    
+    try {
+      // Stop any currently playing audio
+      if (currentSourceRef.current) {
+        try {
+          currentSourceRef.current.stop();
+        } catch (e) {
+          // Source might already be stopped
+        }
+        currentSourceRef.current = null;
+      }
+
+      const audioContext = getAudioContext();
+      
+      console.log('🎵 audio context state:', {
+        state: audioContext.state,
+        currentTime: audioContext.currentTime,
+        sampleRate: audioContext.sampleRate
+      });
+      
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        console.log('🎵 resuming suspended audio context');
+        await audioContext.resume();
+      }
+      
+      // Convert base64 to ArrayBuffer
+      const arrayBuffer = base64ToArrayBuffer(base64Audio);
+      
+      // Decode the complete audio file
+      const decodeStartTime = performance.now();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const decodeEndTime = performance.now();
+      
+      console.log('🎵 decode complete:', {
+        decodeTime: decodeEndTime - decodeStartTime,
+        bufferDuration: audioBuffer.duration,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels
+      });
+
+      // Create source and play
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      currentSourceRef.current = source;
+      
+      // 🎵 PROFESSIONAL AUDIO EFFECTS CHAIN 🎵
+      
+      // Create EQ chain for professional sound
+      const eqChain = createEQChain(audioContext);
+      
+      // Create compressor for dynamic range control
+      const compressor = createCompressor(audioContext);
+      
+      // Create reverb impulse and convolver
+      const reverbImpulse = createReverbImpulse(audioContext);
+      const convolver = audioContext.createConvolver();
+      convolver.buffer = reverbImpulse;
+      
+      // Create dry/wet gain nodes for reverb mixing
+      const dryGain = audioContext.createGain();
+      const wetGain = audioContext.createGain();
+      const outputGain = audioContext.createGain();
+      
+      // Set reverb mix (30% wet, 70% dry)
+      dryGain.gain.setValueAtTime(0.7, audioContext.currentTime);
+      wetGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+      outputGain.gain.setValueAtTime(0.8, audioContext.currentTime); // Overall volume
+      
+      // Connect the professional audio chain:
+      // Source → EQ → Compressor → Split(Dry/Wet) → Reverb → Mix → Output
+      source.connect(eqChain.input);
+      eqChain.output.connect(compressor);
+      
+      // Split signal for dry/wet reverb processing
+      compressor.connect(dryGain);
+      compressor.connect(convolver);
+      convolver.connect(wetGain);
+      
+      // Mix dry and wet signals
+      dryGain.connect(outputGain);
+      wetGain.connect(outputGain);
+      
+      // Final output
+      outputGain.connect(audioContext.destination);
+      
+      console.log('🎵 ✨ Professional audio effects applied:', {
+        eq: 'De-essing + Warmth + High/Low cuts',
+        compression: 'Dynamic range control',
+        reverb: 'Lush spatial processing',
+        mix: '70% dry, 30% wet'
+      });
+      
+      source.onended = () => {
+        const endTime = performance.now();
+        console.log('🎵 audio playback ended:', {
+          totalPlayTime: endTime - startTime,
+          duration: audioBuffer.duration
+        });
+        
+        currentSourceRef.current = null;
+        setIsVoicePlaying(false);
+      };
+
+      const playStartTime = performance.now();
+      source.start(0);
+      setIsVoicePlaying(true);
+      
+      console.log('🎵 playback started:', {
+        startLatency: playStartTime - startTime,
+        audioContextTime: audioContext.currentTime,
+        audioContextState: audioContext.state,
+        duration: audioBuffer.duration
+      });
+      
+    } catch (error) {
+      console.error('🎵 Error playing audio:', error);
+      setIsVoicePlaying(false);
+    }
+  }, [getAudioContext, base64ToArrayBuffer]);
+
+  // Stop any playing audio
+  const stopAudio = useCallback(() => {
+    console.log('🎵 🛑 stopAudio called');
+    
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch (e) {
+        // Source might already be stopped
+      }
+      currentSourceRef.current = null;
+    }
+    
+    setIsVoicePlaying(false);
+  }, []);
+
+  // Stop test audio
+  const stopTestAudio = useCallback(() => {
+    if (testSourceNodeRef.current) {
+      try {
+        testSourceNodeRef.current.stop();
+      } catch (e) {
+        // Source might already be stopped
+      }
+      testSourceNodeRef.current = null;
+    }
+    setIsTestPlaying(false);
+  }, []);
+
+  // Simplified streaming functions for API compatibility
+  const startVoiceStreaming = useCallback(() => {
+    console.log('🎵 🎬 Starting voice streaming (full audio mode)');
+    // Stop any currently playing audio
+    stopAudio();
+  }, [stopAudio]);
+
+  const endVoiceStreaming = useCallback(() => {
+    console.log('🎵 🎬 Ending voice streaming (full audio mode)');
+    // Audio will end naturally when playback completes
+  }, []);
+
+  // Legacy function for API compatibility
+  const queueAudioChunk = useCallback((base64Audio: string, format: string = 'mp3') => {
+    console.log('🎵 queueAudioChunk called - redirecting to playAudio (full audio mode)');
+    playAudio(base64Audio, format);
+  }, [playAudio]);
+
+  // Legacy function for API compatibility
+  const setBufferDelay = useCallback((delayMs: number) => {
+    console.log(`🎵 Buffer delay setting ignored in full audio mode: ${delayMs}ms`);
+  }, []);
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    stopAudio();
+    stopTestAudio();
+    // Don't close audio context immediately as it can't be reopened
+    // Let the browser handle cleanup when the page unloads
+  }, [stopAudio, stopTestAudio]);
 
   // Create reverb impulse response with pre-delay (kept for future use)
   const createReverbImpulse = useCallback((audioContext: AudioContext, duration: number = 1.2, decay: number = 3, preDelay: number = 0.03) => {
@@ -147,104 +301,6 @@ export const useAudioProcessing = () => {
     compressor.release.setValueAtTime(0.1, audioContext.currentTime);
     return compressor;
   }, []);
-
-  // Stop any playing audio
-  const stopAudio = useCallback(() => {
-    console.log('stopAudio called - clearing queue and stopping playback');
-    
-    // Clear the simple audio queue
-    if (audioQueueRef.current) {
-      audioQueueRef.current.clear();
-    }
-    
-    setIsVoicePlaying(false);
-  }, []);
-
-  // Stop test audio
-  const stopTestAudio = useCallback(() => {
-    if (testSourceNodeRef.current) {
-      try {
-        testSourceNodeRef.current.stop();
-      } catch (e) {
-        // Source might already be stopped
-      }
-      testSourceNodeRef.current = null;
-    }
-    setIsTestPlaying(false);
-  }, []);
-
-  // Convert base64 to ArrayBuffer
-  const base64ToArrayBuffer = useCallback((base64: string): ArrayBuffer => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return byteArray.buffer;
-  }, []);
-
-  // Add audio chunk to queue (simplified)
-  const queueAudioChunk = useCallback((base64Audio: string, format: string = 'mp3') => {
-    console.log('Queueing audio chunk:', { format, audioLength: base64Audio?.length });
-    
-    try {
-      const audioContext = getAudioContext();
-      
-      // Resume audio context if suspended
-      if (audioContext.state === 'suspended') {
-        audioContext.resume();
-      }
-      
-      // Convert base64 to ArrayBuffer
-      const arrayBuffer = base64ToArrayBuffer(base64Audio);
-      
-      // Add to simple queue
-      if (audioQueueRef.current) {
-        audioQueueRef.current.push(arrayBuffer);
-        setIsVoicePlaying(true);
-      }
-    } catch (error) {
-      console.error('Error queueing audio chunk:', error);
-    }
-  }, [getAudioContext, base64ToArrayBuffer]);
-
-  // Play audio function - now just queues the chunk
-  const playAudio = useCallback(async (base64Audio: string, format: string = 'mp3') => {
-    queueAudioChunk(base64Audio, format);
-  }, [queueAudioChunk]);
-
-  // Start voice streaming - clear queue and prepare for new chunks
-  const startVoiceStreaming = useCallback(() => {
-    console.log('Starting voice streaming - clearing queue');
-    if (audioQueueRef.current) {
-      audioQueueRef.current.clear();
-    }
-    setIsVoicePlaying(false);
-  }, []);
-
-  // End voice streaming - let current queue finish
-  const endVoiceStreaming = useCallback(() => {
-    console.log('Ending voice streaming - queue will finish naturally');
-    // Don't clear queue, let it finish naturally
-    // Set a timeout to update the playing state when queue is likely empty
-    setTimeout(() => {
-      setIsVoicePlaying(false);
-    }, 1000);
-  }, []);
-
-  // Set buffer delay (kept for API compatibility, but not used in simple queue)
-  const setBufferDelay = useCallback((delayMs: number) => {
-    console.log(`Buffer delay setting ignored in simple queue mode: ${delayMs}ms`);
-  }, []);
-
-  // Cleanup function
-  const cleanup = useCallback(() => {
-    stopAudio();
-    stopTestAudio();
-    // Don't close audio context immediately as it can't be reopened
-    // Let the browser handle cleanup when the page unloads
-  }, [stopAudio, stopTestAudio]);
   
   return {
     isVoicePlaying,

@@ -230,6 +230,15 @@ export class ChatWsManager {
   private _handleMessage(message: any): void {
     // Reset timeout on any message to keep connection alive during streaming
     this._resetTimeout();
+    
+    // 🎵 DEBUG: Log all messages to understand what's being sent
+    console.log('🎵 📨 WebSocket received message:', {
+      type: message.type,
+      chatId: message.chat_id,
+      hasAudio: !!message.audio,
+      audioLength: message.audio?.length,
+      keys: Object.keys(message)
+    });
 
     // Handle authentication success
     if (message.type === 'auth_success') {
@@ -275,6 +284,13 @@ export class ChatWsManager {
 
     // Handle voice chunk (new voice-first format)
     if (message.type === 'voice_chunk') {
+      console.log('🎵 📨 WebSocket received voice_chunk:', {
+        chatId: message.chat_id,
+        audioLength: message.audio?.length,
+        format: message.format,
+        hasAudio: !!message.audio
+      });
+      
       if (this._options.callbacks.onVoiceChunk) {
         this._options.callbacks.onVoiceChunk(
           message.chat_id, 
@@ -287,6 +303,24 @@ export class ChatWsManager {
 
     // Handle voice complete (new voice-first format)
     if (message.type === 'voice_complete') {
+      console.log('🎵 📨 WebSocket received voice_complete:', {
+        chatId: message.chat_id,
+        audioLength: message.audio?.length,
+        format: message.format,
+        hasAudio: !!message.audio,
+        messageKeys: Object.keys(message)
+      });
+      
+      // Check if complete audio is in voice_complete event
+      if (message.audio && message.audio.length > 0 && this._options.callbacks.onVoiceChunk) {
+        console.log('🎵 📨 Found complete audio in voice_complete, forwarding to onVoiceChunk');
+        this._options.callbacks.onVoiceChunk(
+          message.chat_id, 
+          message.audio, 
+          message.format || 'mp3'
+        );
+      }
+      
       if (this._options.callbacks.onVoiceComplete) {
         this._options.callbacks.onVoiceComplete(message.chat_id);
       }

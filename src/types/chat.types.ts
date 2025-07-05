@@ -7,7 +7,6 @@ export interface Message {
   chatId?: string;
   hasAudio?: boolean;
   imageUrl?: string;
-  imagePrompt?: string;
   isGeneratingImage?: boolean;
   imageError?: string;
 }
@@ -30,6 +29,13 @@ export interface MessageResponse {
   content: string;
   context?: any;
   created_at: string;
+  images?: {
+    id: string;
+    message_id: string;
+    prompt: string;
+    image_url: string;
+    created_at: string;
+  }[];
 }
 
 export interface ChatWithMessages {

@@ -18,7 +18,6 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPreviousMessages, setIsLoadingPreviousMessages] = useState(false);
-  const [authToken, setAuthToken] = useState<string>('');
   const [imageGenerationEnabled, setImageGenerationEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   
@@ -52,26 +51,6 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     cleanup: cleanupAudio
   } = useAudioProcessing();
 
-  // Get auth token when user is signed in
-  useEffect(() => {
-    const fetchToken = async () => {
-      if (isSignedIn) {
-        try {
-          const token = await getToken();
-          if (token) {
-            setAuthToken(token);
-          }
-        } catch (error) {
-          console.error('Failed to get auth token:', error);
-        }
-      } else {
-        setAuthToken('');
-      }
-    };
-
-    fetchToken();
-  }, [isSignedIn, getToken]);
-
   // Load settings from localStorage
   useEffect(() => {
     const savedImageEnabled = localStorage.getItem('chat-image-enabled');
@@ -100,7 +79,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
     stopAudio,
     startVoiceStreaming,
     endVoiceStreaming,
-    authToken
+    getToken
   });
 
   // Use chat loader hook
@@ -143,7 +122,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || !isSignedIn || !authToken) return;
+    if (!input.trim() || isLoading || !isSignedIn) return;
     
     const message = input.trim();
     setInput('');
@@ -169,7 +148,6 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
 
   const getPlaceholder = () => {
     if (!isSignedIn) return "Please sign in to chat...";
-    if (!authToken) return "Authenticating...";
     if (isLoadingPreviousMessages) return "Loading previous messages...";
     if (isLoading) return "Russell is contemplating";
     if (isVoiceStreaming) return "Russell is speaking...";
@@ -183,7 +161,7 @@ const GlassChatInterface = forwardRef<GlassChatInterfaceRef, GlassChatInterfaceP
   };
 
   const handleStartLesson = async () => {
-    if (!isSignedIn || isLoading || !authToken) return;
+    if (!isSignedIn || isLoading) return;
     await submitMessage("Let's start the black hole lesson! Teach me about black holes", imageGenerationEnabled, voiceEnabled);
   };
 

@@ -65,7 +65,9 @@ export const useChatLoader = ({
         chatId: msg.chat_id,
         timestamp: new Date(msg.created_at),
         isLoading: false,
-        hasAudio: false // Previous messages don't have audio playback
+        hasAudio: false, // Previous messages don't have audio playback
+        // Handle images from database
+        imageUrl: msg.images && msg.images.length > 0 ? msg.images[0].image_url : undefined
       }));
       
       setMessages(transformedMessages);

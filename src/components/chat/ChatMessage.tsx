@@ -11,7 +11,6 @@ export interface Message {
   isStreaming?: boolean;
   // Image-related fields
   imageUrl?: string;
-  imagePrompt?: string;
   isGeneratingImage?: boolean;
   imageError?: string;
 }
@@ -115,11 +114,6 @@ export default function ChatMessage({ message, isLessonMode = false }: ChatMessa
                   <div className="animate-spin w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full"></div>
                   <span>Generating image...</span>
                 </div>
-                {message.imagePrompt && (
-                  <p className="mt-2 text-xs text-white/60 italic">
-                    Prompt: {message.imagePrompt}
-                  </p>
-                )}
               </div>
             )}
             
@@ -136,11 +130,6 @@ export default function ChatMessage({ message, isLessonMode = false }: ChatMessa
                     unoptimized // Since these are external URLs
                   />
                 </div>
-                {message.imagePrompt && (
-                  <p className="mt-2 text-xs text-white/60 italic">
-                    Image prompt: {message.imagePrompt}
-                  </p>
-                )}
               </div>
             )}
             
