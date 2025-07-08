@@ -152,7 +152,7 @@ export default function ChatMessage({ message, isLessonMode = false }: ChatMessa
               </div>
             )}
             
-            {/* Show image error */}
+            
             {message.imageError && (
               <div className="mt-3 p-3 bg-red-500/20 backdrop-blur-sm rounded-lg border border-red-400/30">
                 <p className="text-sm text-red-200">

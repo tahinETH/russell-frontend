@@ -39,6 +39,8 @@ export const useMessageHandler = ({
   const audioChunksRef = useRef<{data: string, format: string}[]>([]);
   const currentMessageIdRef = useRef<string | null>(null);
   const [isImageGenerating, setIsImageGenerating] = useState(false);
+  // Store the complete text response until voice starts
+  const pendingTextResponseRef = useRef<string | null>(null);
   
   const submitMessage = useCallback(async (inputMessage: string, enableImage: boolean = true, enableVoice: boolean = true, expertiseLevel: number = 3) => {
     if (!inputMessage.trim() || isLoading) return;
@@ -81,6 +83,7 @@ export const useMessageHandler = ({
     stopAudio(); // Stop any currently playing audio
     setIsVoiceStreaming(false);
     audioChunksRef.current = []; // Reset audio chunks
+    pendingTextResponseRef.current = null; // Reset pending text
     
     try {
       // Close any existing WebSocket connection
@@ -113,6 +116,7 @@ export const useMessageHandler = ({
             setIsLoading(false);
             setIsVoiceStreaming(false);
             currentMessageIdRef.current = null;
+            pendingTextResponseRef.current = null;
           },
           onConnect: () => {
             console.log('WebSocket connected');
@@ -130,30 +134,57 @@ export const useMessageHandler = ({
           onTextComplete: (chatId: string, fullResponse: string) => {
             console.log('Text complete:', { chatId, responseLength: fullResponse.length });
             
-            // Update the loading message with complete text
-            setMessages(prev => prev.map(msg => {
-              if (msg.id === currentMessageIdRef.current && msg.isLoading && msg.type === 'ai') {
-                return {
-                  ...msg,
-                  content: fullResponse,
-                  isLoading: false,
-                  hasAudio: true, // Voice will follow
-                  chatId: chatId
-                };
-              }
-              return msg;
-            }));
+            // Store the text response but don't reveal it yet if voice is enabled
+            pendingTextResponseRef.current = fullResponse;
+            
+            // If voice is disabled, reveal the text immediately
+            if (!enableVoice) {
+              setMessages(prev => prev.map(msg => {
+                if (msg.id === currentMessageIdRef.current && msg.isLoading && msg.type === 'ai') {
+                  return {
+                    ...msg,
+                    content: fullResponse,
+                    isLoading: false,
+                    hasAudio: false,
+                    chatId: chatId
+                  };
+                }
+                return msg;
+              }));
 
-            // Notify parent component of new AI message
-            if (onNewAiMessage) {
-              onNewAiMessage(fullResponse);
+              // Notify parent component of new AI message
+              if (onNewAiMessage) {
+                onNewAiMessage(fullResponse);
+              }
             }
+            // If voice is enabled, wait for onVoiceStart to reveal the text
           },
           onVoiceStart: (chatId: string) => {
             console.log('Voice streaming started:', { chatId });
             setIsVoiceStreaming(true);
             audioChunksRef.current = []; // Reset for new voice stream
             startVoiceStreaming(); // Clear audio queue and prepare for new chunks
+            
+            // Now reveal the text simultaneously with voice start
+            if (pendingTextResponseRef.current) {
+              setMessages(prev => prev.map(msg => {
+                if (msg.id === currentMessageIdRef.current && msg.isLoading && msg.type === 'ai') {
+                  return {
+                    ...msg,
+                    content: pendingTextResponseRef.current!,
+                    isLoading: false,
+                    hasAudio: true,
+                    chatId: chatId
+                  };
+                }
+                return msg;
+              }));
+
+              // Notify parent component of new AI message
+              if (onNewAiMessage) {
+                onNewAiMessage(pendingTextResponseRef.current);
+              }
+            }
           },
           onVoiceChunk: async (chatId: string, audioData: string, format: string) => {
             console.log('Voice chunk received (full audio):', { chatId, format, dataLength: audioData.length });
@@ -196,6 +227,7 @@ export const useMessageHandler = ({
             // Clean up
             currentMessageIdRef.current = null;
             audioChunksRef.current = [];
+            pendingTextResponseRef.current = null;
             
             // Close WebSocket connection
             if (wsManagerRef.current) {
@@ -277,6 +309,7 @@ export const useMessageHandler = ({
       setIsLoading(false);
       setIsVoiceStreaming(false);
       currentMessageIdRef.current = null;
+      pendingTextResponseRef.current = null;
     }
   }, [
     isLoading,
@@ -302,6 +335,7 @@ export const useMessageHandler = ({
     stopAudio();
     setIsVoiceStreaming(false);
     audioChunksRef.current = [];
+    pendingTextResponseRef.current = null;
   }, [stopAudio]);
 
   return {

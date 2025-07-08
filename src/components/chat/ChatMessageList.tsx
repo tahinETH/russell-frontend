@@ -3,6 +3,7 @@ import { User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '@/types/chat.types';
 import ChatMessage from './ChatMessage';
+import { m } from 'framer-motion';
 
 interface ChatMessageListProps {
   messages: Message[];
@@ -19,6 +20,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   isLessonMode,
   messagesEndRef
 }) => {
+  console.log(messages)
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
       {isLoadingPreviousMessages && (
